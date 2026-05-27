@@ -10,4 +10,7 @@ urlpatterns = [
     path('patient/create/', views.patient_create, name='patient_create'),
     path('patient/<int:pk>/receipt/', views.patient_receipt, name='patient_receipt'),
     path('patient/list/', views.patient_list, name='patient_list'),
+
+    # Lịch hẹn walk-in
+    path('appointment/walkin/<int:patient_id>/', views.walkin_appointment, name='walkin_appointment'),
 ]

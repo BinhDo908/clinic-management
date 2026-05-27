@@ -118,3 +118,57 @@ def patient_list(request):
         'patients': patients,
         'query': query,
     })
+
+@role_required('RECEPTIONIST', 'ADMIN')
+def walkin_appointment(request, patient_id):
+    """
+    Tạo lịch hẹn tại quầy cho 1 bệnh nhân cụ thể.
+    Status mặc định = CHECKED_IN (đã có mặt).
+    """
+    patient = get_object_or_404(Patient, pk=patient_id)
+    
+    if request.method == 'POST':
+        form = WalkInAppointmentForm(request.POST)
+        if form.is_valid():
+            doctor = form.cleaned_data['doctor']
+            appt_datetime = form.cleaned_data['appt_datetime']
+            
+            # Kiểm tra xung đột lịch hẹn (theo spec dự án)
+            conflict = Appointment.objects.filter(
+                doctor=doctor,
+                appt_datetime=appt_datetime,
+            ).exclude(status='CANCELLED').exists()
+            
+            if conflict:
+                messages.error(
+                    request,
+                    f'⚠ Bác sĩ {doctor.get_full_name() or doctor.username} '
+                    f'đã có lịch khám vào lúc {appt_datetime.strftime("%H:%M %d/%m/%Y")}. '
+                    f'Vui lòng chọn thời gian khác.'
+                )
+            else:
+                # Tạo lịch hẹn với status CHECKED_IN (walk-in)
+                appt = Appointment.objects.create(
+                    patient=patient,
+                    doctor=doctor,
+                    appt_datetime=appt_datetime,
+                    source='DIRECT',
+                    status='CHECKED_IN',
+                    note=form.cleaned_data['note'],
+                )
+                messages.success(
+                    request,
+                    f'✓ Đã đặt lịch hẹn cho bệnh nhân {patient.full_name}. '
+                    f'Bệnh nhân đã được xếp vào hàng đợi phòng khám của bác sĩ.'
+                )
+                return redirect('reception:appointment_list')
+    else:
+        # Mặc định: giờ hiện tại
+        form = WalkInAppointmentForm(initial={
+            'appt_datetime': timezone.now().strftime('%Y-%m-%dT%H:%M')
+        })
+    
+    return render(request, 'reception/walkin_appointment.html', {
+        'form': form,
+        'patient': patient,
+    })
