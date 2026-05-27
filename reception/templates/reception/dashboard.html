@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Bảng điều khiển Lễ tân{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-clipboard-data"></i> Bảng điều khiển Lễ tân</h2>
+<p class="text-muted">Tổng quan công việc hôm nay</p>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-clock-history"></i> Lịch chờ duyệt
+                </h5>
+                <h2>{{ pending_count }}</h2>
+                <a href="{% url 'reception:pending_queue' %}" class="text-white">
+                    Xử lý ngay <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-info">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-calendar-check"></i> Lịch hẹn hôm nay
+                </h5>
+                <h2>{{ today_appointments }}</h2>
+                <a href="{% url 'reception:appointment_list' %}" class="text-white">
+                    Xem chi tiết <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-success">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-person-check"></i> Đã có mặt
+                </h5>
+                <h2>{{ checked_in_count }}</h2>
+                <small>Đang chờ khám</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <strong>5 lịch hẹn sắp tới hôm nay</strong>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Giờ hẹn</th>
+                    <th>Bệnh nhân</th>
+                    <th>Bác sĩ</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in upcoming %}
+                <tr>
+                    <td>{{ appt.appt_datetime|date:"H:i" }}</td>
+                    <td>{{ appt.patient.full_name }}</td>
+                    <td>{{ appt.doctor.get_full_name|default:appt.doctor.username }}</td>
+                    <td>
+                        <span class="badge bg-secondary">{{ appt.get_status_display }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">
+                        Không có lịch hẹn nào hôm nay.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'reception:patient_create' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Tiếp nhận bệnh nhân mới
+    </a>
+    <a href="{% url 'reception:patient_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-people"></i> Danh sách bệnh nhân
+    </a>
+</div>
+{% endblock %}

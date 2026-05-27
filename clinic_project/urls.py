@@ -12,4 +12,5 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('pharmacy/', include('pharmacy.urls')),
     # Các app khác sẽ thêm sau khi các thành viên hoàn thành
+    path('reception/', include('reception.urls')),
 ]
