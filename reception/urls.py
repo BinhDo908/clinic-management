@@ -13,4 +13,9 @@ urlpatterns = [
 
     # Lịch hẹn walk-in
     path('appointment/walkin/<int:patient_id>/', views.walkin_appointment, name='walkin_appointment'),
+
+    # Hàng đợi duyệt lịch online
+    path('pending/', views.pending_queue, name='pending_queue'),
+    path('appointment/<int:pk>/approve/', views.approve_appointment, name='approve_appointment'),
+    path('appointment/<int:pk>/reject/', views.reject_appointment, name='reject_appointment'),
 ]

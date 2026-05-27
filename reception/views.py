@@ -172,3 +172,59 @@ def walkin_appointment(request, patient_id):
         'form': form,
         'patient': patient,
     })
+
+@role_required('RECEPTIONIST', 'ADMIN')
+def pending_queue(request):
+    """Hàng đợi các lịch hẹn online chờ duyệt."""
+    pending_appointments = Appointment.objects.filter(
+        status='PENDING',
+        source='WEB',
+    ).order_by('appt_datetime')
+    
+    return render(request, 'reception/pending_queue.html', {
+        'appointments': pending_appointments,
+    })
+
+
+@role_required('RECEPTIONIST', 'ADMIN')
+def approve_appointment(request, pk):
+    """Duyệt 1 lịch hẹn online (chuyển PENDING → CONFIRMED)."""
+    appt = get_object_or_404(Appointment, pk=pk, status='PENDING')
+    
+    if request.method == 'POST':
+        # Kiểm tra lại xung đột trước khi duyệt
+        conflict = Appointment.objects.filter(
+            doctor=appt.doctor,
+            appt_datetime=appt.appt_datetime,
+            status__in=['CONFIRMED', 'CHECKED_IN'],
+        ).exclude(pk=appt.pk).exists()
+        
+        if conflict:
+            messages.error(
+                request,
+                f'⚠ Đã có lịch khác được duyệt vào khung giờ này. Vui lòng từ chối lịch này.'
+            )
+        else:
+            appt.status = 'CONFIRMED'
+            appt.save()
+            messages.success(
+                request,
+                f'✓ Đã duyệt lịch hẹn của bệnh nhân {appt.patient.full_name}.'
+            )
+        return redirect('reception:pending_queue')
+    
+    return render(request, 'reception/approve_confirm.html', {'appointment': appt})
+
+
+@role_required('RECEPTIONIST', 'ADMIN')
+def reject_appointment(request, pk):
+    """Từ chối/hủy 1 lịch hẹn (chuyển sang CANCELLED)."""
+    appt = get_object_or_404(Appointment, pk=pk)
+    
+    if request.method == 'POST':
+        appt.status = 'CANCELLED'
+        appt.save()
+        messages.success(request, 'Đã hủy lịch hẹn.')
+        return redirect('reception:pending_queue')
+    
+    return render(request, 'reception/reject_confirm.html', {'appointment': appt})
