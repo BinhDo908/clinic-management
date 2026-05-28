@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Khám bệnh - {{ patient.full_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-clipboard-plus"></i> Khám bệnh</h2>
+    <a href="{% url 'doctor:queue' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Về hàng đợi
+    </a>
+</div>
+
+<!-- Thông tin bệnh nhân -->
+<div class="card mb-3">
+    <div class="card-body bg-light">
+        <div class="row">
+            <div class="col-md-4"><strong>Bệnh nhân:</strong> {{ patient.full_name }}</div>
+            <div class="col-md-3"><strong>SĐT:</strong> {{ patient.phone }}</div>
+            <div class="col-md-2"><strong>Giới tính:</strong> {{ patient.get_gender_display }}</div>
+            <div class="col-md-3"><strong>Ngày sinh:</strong> {{ patient.date_of_birth|default:"--" }}</div>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="examForm">
+    {% csrf_token %}
+
+    <!-- Phần ghi bệnh án -->
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            <strong><i class="bi bi-journal-medical"></i> Thông tin khám</strong>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">{{ form.symptoms.label }} <span class="text-danger">*</span></label>
+                {{ form.symptoms }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.diagnosis.label }} <span class="text-danger">*</span></label>
+                {{ form.diagnosis }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.clinical_notes.label }}</label>
+                {{ form.clinical_notes }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Phần kê đơn thuốc -->
+    <div class="card mb-3">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-capsule"></i> Kê đơn thuốc</strong>
+            <button type="button" class="btn btn-light btn-sm" onclick="addMedicineRow()">
+                <i class="bi bi-plus-circle"></i> Thêm thuốc
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="table" id="prescriptionTable">
+                <thead>
+                    <tr>
+                        <th width="40%">Thuốc</th>
+                        <th width="15%">Số lượng</th>
+                        <th width="35%">Cách dùng</th>
+                        <th width="10%"></th>
+                    </tr>
+                </thead>
+                <tbody id="prescriptionBody">
+                    <!-- Các dòng thuốc được thêm bằng JS -->
+                </tbody>
+            </table>
+            <small class="text-muted">Nhấn "Thêm thuốc" để kê đơn. Có thể để trống nếu không cần kê thuốc.</small>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success btn-lg">
+        <i class="bi bi-check-circle"></i> Hoàn tất khám & Lưu đơn
+    </button>
+</form>
+
+{{ medicines_data|json_script:"medicines-data" }}
+<script>
+const medicines = JSON.parse(document.getElementById('medicines-data').textContent);
+
+function addMedicineRow() {
+    const tbody = document.getElementById('prescriptionBody');
+    const row = document.createElement('tr');
+
+    // Tạo dropdown thuốc
+    let options = '<option value="">-- Chọn thuốc --</option>';
+    medicines.forEach(m => {
+        options += `<option value="${m.id}">${m.name} (Tồn: ${m.stock} ${m.unit} - ${m.price.toLocaleString()}đ)</option>`;
+    });
+
+    row.innerHTML = `
+        <td>
+            <select name="medicine_id[]" class="form-select form-select-sm">
+                ${options}
+            </select>
+        </td>
+        <td>
+            <input type="number" name="quantity[]" class="form-control form-control-sm" min="1" placeholder="SL">
+        </td>
+        <td>
+            <input type="text" name="dosage[]" class="form-control form-control-sm" placeholder="VD: 2 viên/ngày sau ăn">
+        </td>
+        <td>
+            <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(row);
+}
+
+// Tự động thêm 1 dòng khi mở trang
+document.addEventListener('DOMContentLoaded', addMedicineRow);
+</script>
+{% endblock %}

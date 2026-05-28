@@ -50,9 +50,9 @@
                 </li>
             {% endif %}
 
-            {% if user.role == 'DOCTOR' %}
+            {% if user.role == 'DOCTOR' or user.role == 'ADMIN' %}
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{% url 'doctor:queue' %}">
                         <i class="bi bi-clipboard-pulse"></i> Hàng đợi khám
                     </a>
                 </li>

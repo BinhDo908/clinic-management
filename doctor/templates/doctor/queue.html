@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Hàng đợi khám bệnh{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-clipboard-pulse"></i> Hàng đợi khám bệnh</h2>
+<p class="text-muted">Danh sách bệnh nhân đang chờ khám của bác sĩ {{ user.get_full_name|default:user.username }}</p>
+
+<div class="card mb-4">
+    <div class="card-header bg-success text-white d-flex justify-content-between">
+        <strong><i class="bi bi-hourglass-split"></i> Đang chờ khám</strong>
+        <span class="badge bg-light text-dark">{{ queue_count }} bệnh nhân</span>
+    </div>
+    <div class="card-body">
+        {% if queue %}
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>STT</th>
+                    <th>Bệnh nhân</th>
+                    <th>SĐT</th>
+                    <th>Giờ hẹn</th>
+                    <th>Ghi chú tiếp nhận</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in queue %}
+                <tr>
+                    <td><span class="badge bg-secondary">{{ forloop.counter }}</span></td>
+                    <td>
+                        <strong>{{ appt.patient.full_name }}</strong><br>
+                        <small class="text-muted">
+                            {{ appt.patient.get_gender_display }}
+                            {% if appt.patient.date_of_birth %}
+                                · {{ appt.patient.date_of_birth|date:"Y" }}
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>{{ appt.patient.phone }}</td>
+                    <td>{{ appt.appt_datetime|date:"H:i" }}</td>
+                    <td><small>{{ appt.note|default:"--"|truncatechars:40 }}</small></td>
+                    <td>
+                        <a href="{% url 'doctor:examination' appt.pk %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-clipboard-plus"></i> Vào khám
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-check-circle" style="font-size: 3rem;"></i>
+            <p class="mt-3">Hiện không có bệnh nhân nào chờ khám.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if completed_today %}
+<div class="card">
+    <div class="card-header">
+        <strong><i class="bi bi-check2-all"></i> Đã khám hôm nay ({{ completed_today|length }})</strong>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr><th>Giờ</th><th>Bệnh nhân</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+                {% for appt in completed_today %}
+                <tr>
+                    <td>{{ appt.appt_datetime|date:"H:i" }}</td>
+                    <td>{{ appt.patient.full_name }}</td>
+                    <td><span class="badge bg-dark">Hoàn tất</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
