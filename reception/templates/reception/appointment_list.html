@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Lịch hẹn tổng{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-calendar3"></i> Lịch hẹn tổng</h2>
+
+<!-- Filter -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Ngày</label>
+                <input type="date" name="date" class="form-control" value="{{ date_filter }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Bác sĩ</label>
+                <select name="doctor" class="form-select">
+                    <option value="">-- Tất cả --</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}" {% if doctor_filter == d.id|stringformat:"s" %}selected{% endif %}>
+                        {{ d.get_full_name|default:d.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Trạng thái</label>
+                <select name="status" class="form-select">
+                    <option value="">-- Tất cả --</option>
+                    {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> Lọc
+                </button>
+                <a href="{% url 'reception:appointment_list' %}" class="btn btn-outline-secondary ms-2">
+                    Xóa lọc
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Ngày khám</th>
+                    <th>Giờ</th>
+                    <th>Bệnh nhân</th>
+                    <th>Bác sĩ</th>
+                    <th>Nguồn</th>
+                    <th>Trạng thái</th>
+                    <th>Ghi chú</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in appointments %}
+                <tr>
+                    <td>{{ appt.appt_datetime|date:"d/m/Y" }}</td>
+                    <td><strong>{{ appt.appt_datetime|date:"H:i" }}</strong></td>
+                    <td>
+                        {{ appt.patient.full_name }}<br>
+                        <small class="text-muted">{{ appt.patient.phone }}</small>
+                    </td>
+                    <td>{{ appt.doctor.get_full_name|default:appt.doctor.username }}</td>
+                    <td>
+                        {% if appt.source == 'WEB' %}
+                            <span class="badge bg-info">Online</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Tại quầy</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if appt.status == 'PENDING' %}
+                            <span class="badge bg-warning">Chờ duyệt</span>
+                        {% elif appt.status == 'CONFIRMED' %}
+                            <span class="badge bg-primary">Đã xác nhận</span>
+                        {% elif appt.status == 'CHECKED_IN' %}
+                            <span class="badge bg-success">Đã có mặt</span>
+                        {% elif appt.status == 'COMPLETED' %}
+                            <span class="badge bg-dark">Hoàn tất</span>
+                        {% elif appt.status == 'CANCELLED' %}
+                            <span class="badge bg-danger">Đã hủy</span>
+                        {% endif %}
+                    </td>
+                    <td><small>{{ appt.note|truncatechars:40 }}</small></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">
+                        Không có lịch hẹn nào phù hợp với bộ lọc.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

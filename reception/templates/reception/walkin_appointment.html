@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Đặt lịch tại quầy{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-calendar-plus"></i> Đặt lịch khám tại quầy
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light border">
+                    <strong>Bệnh nhân:</strong> {{ patient.full_name }}<br>
+                    <strong>SĐT:</strong> {{ patient.phone }} | 
+                    <strong>Mã BN:</strong> BN{{ patient.patient_id|stringformat:"06d" }}
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            {{ form.doctor.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.doctor }}
+                        {% if form.doctor.errors %}
+                            <div class="text-danger small">{{ form.doctor.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            {{ form.appt_datetime.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.appt_datetime }}
+                        {% if form.appt_datetime.errors %}
+                            <div class="text-danger small mt-1">{{ form.appt_datetime.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted d-block mt-1">
+                            Giờ làm việc: 07:00–11:30 và 13:00–17:30 (Thứ 2 – Thứ 6).
+                            Hệ thống sẽ kiểm tra xung đột lịch tự động.
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.note.label }}</label>
+                        {{ form.note }}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Xác nhận đặt lịch
+                    </button>
+                    <a href="{% url 'reception:patient_list' %}" class="btn btn-secondary">
+                        Hủy
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

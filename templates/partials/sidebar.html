@@ -24,18 +24,28 @@
 
             {% if user.role == 'RECEPTIONIST' %}
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
-                        <i class="bi bi-calendar"></i> Lịch hẹn tổng
+                    <a class="nav-link" href="{% url 'reception:dashboard' %}">
+                        <i class="bi bi-speedometer2"></i> Bảng điều khiển
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
-                        <i class="bi bi-person-plus"></i> Tiếp nhận bệnh nhân
+                    <a class="nav-link" href="{% url 'reception:patient_create' %}">
+                        <i class="bi bi-person-plus"></i> Tiếp nhận BN mới
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
-                        <i class="bi bi-cash"></i> Thanh toán
+                    <a class="nav-link" href="{% url 'reception:patient_list' %}">
+                        <i class="bi bi-people"></i> Danh sách bệnh nhân
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'reception:pending_queue' %}">
+                        <i class="bi bi-clock-history"></i> Hàng đợi duyệt
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'reception:appointment_list' %}">
+                        <i class="bi bi-calendar3"></i> Lịch hẹn tổng
                     </a>
                 </li>
             {% endif %}

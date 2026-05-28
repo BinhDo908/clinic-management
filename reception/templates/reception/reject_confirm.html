@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">Xác nhận từ chối lịch hẹn</h4>
+            </div>
+            <div class="card-body">
+                <p>Bạn có chắc muốn <strong>từ chối</strong> lịch hẹn này?</p>
+                <table class="table">
+                    <tr><th>Bệnh nhân:</th><td>{{ appointment.patient.full_name }}</td></tr>
+                    <tr><th>Thời gian:</th><td>{{ appointment.appt_datetime|date:"H:i - d/m/Y" }}</td></tr>
+                </table>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Xác nhận từ chối
+                    </button>
+                    <a href="{% url 'reception:pending_queue' %}" class="btn btn-secondary">Hủy</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Phiếu tiếp nhận - {{ patient.full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print { display: none !important; }
+        .receipt { border: 2px dashed #000; padding: 20px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="alert alert-success no-print">
+            <i class="bi bi-check-circle"></i> 
+            <strong>Tiếp nhận thành công!</strong> Hãy in phiếu dưới đây giao cho bệnh nhân.
+        </div>
+        
+        <div class="card receipt">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3>PHÒNG KHÁM ĐA KHOA</h3>
+                    <p class="text-muted">Phiếu tiếp nhận bệnh nhân</p>
+                    <hr>
+                </div>
+                
+                <table class="table">
+                    <tr>
+                        <th width="30%">Mã bệnh nhân:</th>
+                        <td><strong>BN{{ patient.patient_id|stringformat:"06d" }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Họ và tên:</th>
+                        <td>{{ patient.full_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Số điện thoại:</th>
+                        <td>{{ patient.phone }}</td>
+                    </tr>
+                    <tr>
+                        <th>Ngày sinh:</th>
+                        <td>{{ patient.date_of_birth|default:"Chưa cập nhật" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Giới tính:</th>
+                        <td>{{ patient.get_gender_display }}</td>
+                    </tr>
+                </table>
+                
+                <div class="alert alert-warning">
+                    <h5><i class="bi bi-key"></i> Thông tin tài khoản đăng nhập</h5>
+                    <p class="mb-1"><strong>Tên đăng nhập:</strong> {{ patient.phone }}</p>
+                    <p class="mb-1"><strong>Mật khẩu mặc định:</strong> {{ default_password }}</p>
+                    <hr>
+                    <small>
+                        <i class="bi bi-info-circle"></i> 
+                        Vui lòng đổi mật khẩu khi đăng nhập lần đầu tại địa chỉ web của phòng khám.
+                    </small>
+                </div>
+                
+                <div class="text-center text-muted mt-4">
+                    <small>Phiếu được tạo lúc: {{ patient.created_at|date:"d/m/Y H:i" }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-3 no-print">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer"></i> In phiếu
+            </button>
+            <a href="{% url 'reception:walkin_appointment' patient.pk %}" class="btn btn-success">
+                <i class="bi bi-calendar-plus"></i> Tạo lịch hẹn cho bệnh nhân này
+            </a>
+            <a href="{% url 'reception:dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-house"></i> Về bảng điều khiển
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
