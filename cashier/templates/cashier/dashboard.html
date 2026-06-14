@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Báo cáo doanh thu{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-bar-chart-line"></i> Báo cáo doanh thu</h2>
+
+<!-- Thẻ thống kê -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-bg-success">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-cash"></i> Doanh thu hôm nay</h6>
+                <h3>{{ today_revenue|floatformat:0 }} đ</h3>
+                <small>{{ today_count }} hóa đơn</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-primary">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-calendar-range"></i> Doanh thu kỳ chọn</h6>
+                <h3>{{ range_revenue|floatformat:0 }} đ</h3>
+                <small>{{ range_count }} hóa đơn</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-warning">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-hourglass"></i> Công nợ chờ thu</h6>
+                <h3>{{ unpaid_total|floatformat:0 }} đ</h3>
+                <small>{{ unpaid_count }} hóa đơn</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-info">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-graph-up"></i> TB/hóa đơn</h6>
+                {% if range_count > 0 %}
+                <h3>{{ range_revenue|floatformat:0 }} đ</h3>
+                {% else %}
+                <h3>0 đ</h3>
+                {% endif %}
+                <small>Doanh thu trung bình</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter khoảng ngày -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Từ ngày</label>
+                <input type="date" name="from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Đến ngày</label>
+                <input type="date" name="to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> Xem báo cáo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Biểu đồ doanh thu 7 ngày -->
+<div class="card">
+    <div class="card-header">
+        <strong>Doanh thu 7 ngày gần nhất</strong>
+    </div>
+    <div class="card-body">
+        <canvas id="revenueChart" height="80"></canvas>
+    </div>
+</div>
+
+{{ daily_revenue|json_script:"daily-revenue-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const ctx = document.getElementById('revenueChart');
+const dailyData = JSON.parse(document.getElementById('daily-revenue-data').textContent);
+
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: dailyData.map(d => d.date),
+        datasets: [{
+            label: 'Doanh thu (đ)',
+            data: dailyData.map(d => d.total),
+            backgroundColor: 'rgba(25, 135, 84, 0.7)',
+            borderColor: 'rgba(25, 135, 84, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return value.toLocaleString() + ' đ';
+                    }
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

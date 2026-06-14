@@ -15,4 +15,5 @@ urlpatterns = [
     # Các app khác sẽ thêm sau khi các thành viên hoàn thành
     path('reception/', include('reception.urls')),
     path('doctor/', include('doctor.urls')),
+    path('cashier/', include('cashier.urls')),
 ]

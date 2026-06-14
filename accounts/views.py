@@ -27,7 +27,7 @@ def dashboard(request):
     """Trang chủ sau khi đăng nhập — điều hướng theo role."""
     role = request.user.role
     if role == 'ADMIN':
-        return redirect('/admin/')
+        return redirect('/cashier/dashboard/')
     elif role == 'PHARMACIST':
         return redirect('/pharmacy/')
     elif role == 'RECEPTIONIST':

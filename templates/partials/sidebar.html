@@ -8,8 +8,8 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">
-                        <i class="bi bi-bar-chart"></i> Báo cáo doanh thu
+                    <a class="nav-link" href="{% url 'cashier:revenue_dashboard' %}">
+                        <i class="bi bi-bar-chart-line"></i> Báo cáo doanh thu
                     </a>
                 </li>
             {% endif %}
@@ -46,6 +46,14 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'reception:appointment_list' %}">
                         <i class="bi bi-calendar3"></i> Lịch hẹn tổng
+                    </a>
+                </li>
+            {% endif %}
+
+            {% if user.role == 'RECEPTIONIST' or user.role == 'ADMIN' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'cashier:invoice_list' %}">
+                        <i class="bi bi-receipt"></i> Quản lý hóa đơn
                     </a>
                 </li>
             {% endif %}
