@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Xác nhận thu tiền{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-cash-coin"></i> Xác nhận thu tiền</h4>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr><th>Mã hóa đơn:</th><td>HD{{ invoice.invoice_id|stringformat:"05d" }}</td></tr>
+                    <tr><th>Bệnh nhân:</th><td>{{ patient.full_name }}</td></tr>
+                    <tr><th>SĐT:</th><td>{{ patient.phone }}</td></tr>
+                    <tr class="table-warning">
+                        <th>Số tiền cần thu:</th>
+                        <td><h4 class="mb-0">{{ invoice.total_amount|floatformat:0 }} đ</h4></td>
+                    </tr>
+                </table>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Vui lòng xác nhận đã nhận đủ tiền từ bệnh nhân trước khi bấm nút bên dưới.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        <i class="bi bi-check-circle"></i> Đã nhận tiền - Xác nhận thanh toán
+                    </button>
+                </form>
+                <a href="{% url 'cashier:invoice_detail' invoice.pk %}" class="btn btn-secondary w-100 mt-2">
+                    Hủy
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Hóa đơn HD{{ invoice.invoice_id|stringformat:"05d" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .no-print { display: none !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2><i class="bi bi-receipt"></i> Chi tiết hóa đơn</h2>
+    <a href="{% url 'cashier:invoice_list' %}?status={% if invoice.status == 'PAID' %}PAID{% else %}UNPAID{% endif %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Về danh sách
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <!-- Header hóa đơn -->
+        <div class="text-center mb-4">
+            <h3>PHÒNG KHÁM ĐA KHOA</h3>
+            <h5>HÓA ĐƠN THANH TOÁN</h5>
+            <p class="text-muted mb-0">Mã: HD{{ invoice.invoice_id|stringformat:"05d" }}</p>
+            <p class="text-muted">Ngày: {{ invoice.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+
+        <!-- Thông tin bệnh nhân -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>Bệnh nhân:</strong> {{ patient.full_name }}<br>
+                <strong>SĐT:</strong> {{ patient.phone }}
+            </div>
+            <div class="col-md-6 text-md-end">
+                <strong>Chẩn đoán:</strong> {{ record.diagnosis|truncatechars:60 }}
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Chi tiết tính tiền -->
+        <h6><i class="bi bi-calculator"></i> Chi tiết thanh toán</h6>
+        <table class="table">
+            <thead class="table-light">
+                <tr>
+                    <th>Khoản mục</th>
+                    <th class="text-center">SL</th>
+                    <th class="text-end">Đơn giá</th>
+                    <th class="text-end">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Phí khám -->
+                <tr>
+                    <td><i class="bi bi-clipboard-pulse"></i> Phí khám bệnh</td>
+                    <td class="text-center">1</td>
+                    <td class="text-end">{{ invoice.consultation_fee|floatformat:0 }} đ</td>
+                    <td class="text-end">{{ invoice.consultation_fee|floatformat:0 }} đ</td>
+                </tr>
+                <!-- Các dòng thuốc -->
+                {% for line in medicine_lines %}
+                <tr>
+                    <td><i class="bi bi-capsule"></i> {{ line.name }} ({{ line.unit }})</td>
+                    <td class="text-center">{{ line.quantity }}</td>
+                    <td class="text-end">{{ line.unit_price|floatformat:0 }} đ</td>
+                    <td class="text-end">{{ line.line_total|floatformat:0 }} đ</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-light">
+                    <td colspan="3" class="text-end"><strong>Tiền thuốc:</strong></td>
+                    <td class="text-end">{{ medicine_total|floatformat:0 }} đ</td>
+                </tr>
+                <tr class="table-light">
+                    <td colspan="3" class="text-end"><strong>Phí khám:</strong></td>
+                    <td class="text-end">{{ invoice.consultation_fee|floatformat:0 }} đ</td>
+                </tr>
+                <tr class="table-warning">
+                    <td colspan="3" class="text-end"><strong>TỔNG CỘNG:</strong></td>
+                    <td class="text-end"><strong>{{ invoice.total_amount|floatformat:0 }} đ</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <!-- Trạng thái -->
+        <div class="text-center mt-3">
+            {% if invoice.status == 'UNPAID' %}
+                <span class="badge bg-warning text-dark fs-6">CHƯA THANH TOÁN</span>
+            {% else %}
+                <span class="badge bg-success fs-6">ĐÃ THANH TOÁN</span>
+                {% if invoice.paid_at %}
+                <p class="text-muted mt-2"><small>Thanh toán lúc: {{ invoice.paid_at|date:"d/m/Y H:i" }}</small></p>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Nút hành động -->
+        <div class="text-center mt-4 no-print">
+            {% if invoice.status == 'UNPAID' %}
+            <a href="{% url 'cashier:invoice_pay' invoice.pk %}" class="btn btn-success btn-lg">
+                <i class="bi bi-cash-coin"></i> Xác nhận thu tiền
+            </a>
+            {% endif %}
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="bi bi-printer"></i> In hóa đơn
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
