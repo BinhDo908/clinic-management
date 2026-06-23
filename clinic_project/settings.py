@@ -106,25 +106,37 @@ TEMPLATES = [
 
 
 # ==============================================================================
-# CẤU HÌNH CƠ SỞ DỮ LIỆU - MySQL 8.0
+# CẤU HÌNH CƠ SỞ DỮ LIỆU
 # ==============================================================================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {
-            # Bắt buộc cho tiếng Việt và emoji
-            'charset': 'utf8mb4',
-            # Bật strict mode để MySQL báo lỗi rõ ràng khi dữ liệu sai
-            # thay vì âm thầm cắt bớt hoặc làm tròn
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+# Mặc định dùng MySQL 8.0 (môi trường phát triển ở local).
+# Khi deploy lên nơi không có MySQL (vd PythonAnywhere free), đặt trong .env:
+#     DB_ENGINE=sqlite
+# thì hệ thống tự dùng SQLite (1 file, không cần cài đặt phần mềm gì thêm).
+if os.getenv('DB_ENGINE', 'mysql') == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME'),
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': os.getenv('DB_PORT', '3306'),
+            'OPTIONS': {
+                # Bắt buộc cho tiếng Việt và emoji
+                'charset': 'utf8mb4',
+                # Bật strict mode để MySQL báo lỗi rõ ràng khi dữ liệu sai
+                # thay vì âm thầm cắt bớt hoặc làm tròn
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
 
 
 # ==============================================================================
