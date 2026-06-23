@@ -8,13 +8,14 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Tải biến môi trường từ file .env
-load_dotenv()
-
 # ==============================================================================
 # CẤU HÌNH ĐƯỜNG DẪN GỐC
 # ==============================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Tải biến môi trường từ file .env (chỉ định rõ đường dẫn để chạy đúng
+# cả khi deploy — vd PythonAnywhere — nơi thư mục làm việc khác thư mục dự án)
+load_dotenv(BASE_DIR / '.env')
 
 
 # ==============================================================================
@@ -28,6 +29,13 @@ DEBUG = os.getenv('DEBUG') == 'True'
 
 # Danh sách host được phép truy cập. Khi deploy, thay '*' bằng domain thật
 ALLOWED_HOSTS = ['*']
+
+# Khi deploy HTTPS (vd PythonAnywhere), Django yêu cầu khai báo origin tin cậy
+# cho CSRF, nếu không các form POST (đăng nhập, đặt lịch...) sẽ bị lỗi 403.
+# Đặt trong .env: CSRF_TRUSTED_ORIGINS=https://tenban.pythonanywhere.com
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
 
 
 # ==============================================================================
