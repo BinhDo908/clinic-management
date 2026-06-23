@@ -5,15 +5,10 @@
 
 ---
 
-## Bước 0 — Đẩy code mới nhất lên GitHub
-Mình vừa sửa 2 chỗ trong `clinic_project/settings.py` (nạp `.env` đúng đường dẫn + `CSRF_TRUSTED_ORIGINS` cho HTTPS). **Bắt buộc** commit & push trước khi clone lên server:
-
-```bash
-git add clinic_project/settings.py
-git commit -m "Chuan bi deploy: nap .env theo BASE_DIR + CSRF_TRUSTED_ORIGINS"
-git push origin main
-```
-(Mình có thể làm hộ bước này nếu bạn đồng ý.)
+## Bước 0 — Code đã sẵn sàng ✅
+Code đã sửa cho production (nạp `.env` đúng đường dẫn + `CSRF_TRUSTED_ORIGINS` cho HTTPS)
+và đã được push lên **fork của bạn**: `https://github.com/BinhDo908/clinic-management` (nhánh `main`).
+Server sẽ clone trực tiếp từ fork này nên không cần làm gì thêm ở bước này.
 
 ---
 
@@ -36,9 +31,9 @@ git push origin main
 ---
 
 ## Bước 3 — Tải code về server
-Mở tab **Consoles** → **Bash**, chạy:
+Mở tab **Consoles** → **Bash**, chạy (clone từ **fork của bạn**):
 ```bash
-git clone https://github.com/QuocAnh1104/clinic-management.git
+git clone https://github.com/BinhDo908/clinic-management.git
 cd clinic-management
 ```
 
