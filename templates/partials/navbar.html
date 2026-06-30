@@ -1,17 +1,45 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container-fluid">
+        {% if user.is_authenticated %}
+            <button class="navbar-toggler d-md-none me-2 border-light" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#sidebarMenu"
+                    aria-label="Mở menu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        {% endif %}
         <a class="navbar-brand" href="/">
             <i class="bi bi-hospital"></i> Phòng khám Đa khoa
         </a>
         <div class="d-flex">
             {% if user.is_authenticated %}
-                <span class="navbar-text text-white me-3">
-                    <i class="bi bi-person-circle"></i> 
-                    {{ user.username }} ({{ user.get_role_display }})
-                </span>
-                <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-box-arrow-right"></i> Đăng xuất
-                </a>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i>
+                        {{ user.get_display_name }} ({{ user.get_role_display }})
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                <i class="bi bi-person-gear"></i> Hồ sơ cá nhân
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'accounts:change_password' %}">
+                                <i class="bi bi-key"></i> Đổi mật khẩu
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'logout' %}" class="m-0">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
             {% else %}
                 <a href="{% url 'login' %}" class="btn btn-outline-light btn-sm">
                     <i class="bi bi-box-arrow-in-right"></i> Đăng nhập

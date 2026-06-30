@@ -13,9 +13,15 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='PATIENT')
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
-    
+
     class Meta:
         db_table = 'Accounts'
+
+    def get_display_name(self):
+        """Tên hiển thị theo thứ tự tiếng Việt (Họ + Tên).
+        Nếu chưa có họ tên thì hiển thị tên đăng nhập."""
+        name = f"{self.last_name} {self.first_name}".strip()
+        return name or self.username
 
 
 class Patient(models.Model):

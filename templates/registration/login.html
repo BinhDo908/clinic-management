@@ -9,23 +9,84 @@
                 <h4 class="mb-0"><i class="bi bi-hospital"></i> Đăng nhập Hệ thống</h4>
             </div>
             <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label">Số điện thoại / Username</label>
-                        <input type="text" name="username" class="form-control" required>
+
+                {% if form.errors %}
+                    <div class="alert alert-danger">Sai tên đăng nhập hoặc mật khẩu.</div>
+                {% endif %}
+
+                <!-- Tab chọn nhóm người dùng -->
+                <ul class="nav nav-pills nav-justified mb-4" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill"
+                                data-bs-target="#tab-patient" type="button">
+                            <i class="bi bi-person"></i> Bệnh nhân
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill"
+                                data-bs-target="#tab-staff" type="button">
+                            <i class="bi bi-person-badge"></i> Nhân viên
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Bệnh nhân -->
+                    <div class="tab-pane fade show active" id="tab-patient">
+                        <p class="text-muted small mb-3">
+                            <i class="bi bi-info-circle"></i>
+                            Dành cho bệnh nhân đặt lịch khám và xem lịch sử khám bệnh.
+                        </p>
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Số điện thoại</label>
+                                <input type="text" name="username" class="form-control"
+                                       placeholder="VD: 0901234567" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Mật khẩu</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
+                            </button>
+                        </form>
+                        <hr>
+                        <p class="text-center mb-0">
+                            Chưa có tài khoản?
+                            <a href="{% url 'patient_portal:register' %}">Đăng ký ngay</a>
+                        </p>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Mật khẩu</label>
-                        <input type="password" name="password" class="form-control" required>
+
+                    <!-- Nhân viên -->
+                    <div class="tab-pane fade" id="tab-staff">
+                        <p class="text-muted small mb-3">
+                            <i class="bi bi-info-circle"></i>
+                            Dành cho <strong>Bác sĩ, Lễ tân, Dược sĩ, Quản trị viên</strong>.
+                            Tài khoản do quản trị viên cấp.
+                        </p>
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Tên đăng nhập</label>
+                                <input type="text" name="username" class="form-control"
+                                       placeholder="Tên đăng nhập nhân viên" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Mật khẩu</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
+                            </button>
+                        </form>
                     </div>
-                    {% if form.errors %}
-                        <div class="alert alert-danger">Sai username hoặc mật khẩu.</div>
-                    {% endif %}
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
-                    </button>
-                </form>
+                </div>
+
+                <p class="text-center text-muted small mt-3 mb-0">
+                    Hệ thống tự nhận diện vai trò và chuyển đến đúng khu vực làm việc sau khi đăng nhập.
+                </p>
             </div>
         </div>
     </div>
