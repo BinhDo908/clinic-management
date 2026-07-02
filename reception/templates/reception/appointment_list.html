@@ -58,7 +58,9 @@
                     <th>Bác sĩ</th>
                     <th>Nguồn</th>
                     <th>Trạng thái</th>
+                    <th>Lý do từ chối</th>
                     <th>Ghi chú</th>
+                    <th>Thao tác</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,11 +93,34 @@
                             <span class="badge bg-danger">Đã hủy</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% if appt.status == 'CANCELLED' and appt.rejection_reason %}
+                            <small class="text-danger" title="{{ appt.rejection_reason }}">
+                                {{ appt.rejection_reason|truncatechars:40 }}
+                            </small>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td><small>{{ appt.note|truncatechars:40 }}</small></td>
+                    <td>
+                        {% if appt.status == 'CONFIRMED' %}
+                            <a href="{% url 'reception:checkin_appointment' appt.pk %}"
+                               class="btn btn-sm btn-success">
+                                <i class="bi bi-box-arrow-in-right"></i> Check-in
+                            </a>
+                        {% elif appt.status == 'CHECKED_IN' %}
+                            <span class="text-success small">
+                                <i class="bi bi-check-circle"></i> Đã có mặt
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted">
+                    <td colspan="9" class="text-center text-muted">
                         Không có lịch hẹn nào phù hợp với bộ lọc.
                     </td>
                 </tr>

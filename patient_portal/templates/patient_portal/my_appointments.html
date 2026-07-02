@@ -37,6 +37,9 @@
                         {% elif appt.status == 'COMPLETED' %}<span class="badge bg-dark">Hoàn tất</span>
                         {% elif appt.status == 'CANCELLED' %}<span class="badge bg-danger">Đã hủy</span>
                         {% endif %}
+                        {% if appt.status == 'CANCELLED' and appt.rejection_reason %}
+                            <br><small class="text-muted">Lý do: {{ appt.rejection_reason }}</small>
+                        {% endif %}
                     </td>
                     <td>
                         {% if appt.status in 'PENDING,CONFIRMED' %}

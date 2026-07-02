@@ -14,6 +14,11 @@
                 </table>
                 <form method="post">
                     {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Lý do từ chối / hủy <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="3" required
+                                  placeholder="VD: Bác sĩ bận đột xuất, bệnh nhân yêu cầu đổi lịch..."></textarea>
+                    </div>
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-x-circle"></i> Xác nhận từ chối
                     </button>

@@ -133,36 +133,53 @@ def walkin_appointment(request, patient_id):
         if form.is_valid():
             doctor = form.cleaned_data['doctor']
             appt_datetime = form.cleaned_data['appt_datetime']
-            
-            # Kiểm tra xung đột lịch hẹn (theo spec dự án)
-            conflict = Appointment.objects.filter(
-                doctor=doctor,
-                appt_datetime=appt_datetime,
-            ).exclude(status='CANCELLED').exists()
-            
-            if conflict:
-                messages.error(
-                    request,
-                    f'⚠ Bác sĩ {doctor.get_full_name() or doctor.username} '
-                    f'đã có lịch khám vào lúc {appt_datetime.strftime("%H:%M %d/%m/%Y")}. '
-                    f'Vui lòng chọn thời gian khác.'
-                )
-            else:
-                # Tạo lịch hẹn với status CHECKED_IN (walk-in)
-                appt = Appointment.objects.create(
-                    patient=patient,
+
+            with transaction.atomic():
+                # Khóa dòng tài khoản bác sĩ + hồ sơ bệnh nhân trong lúc kiểm tra + tạo lịch,
+                # tránh đặt trùng giờ cùng lúc lọt qua kiểm tra xung đột
+                User.objects.select_for_update().get(pk=doctor.pk)
+                Patient.objects.select_for_update().get(pk=patient.pk)
+
+                conflict = Appointment.objects.filter(
                     doctor=doctor,
                     appt_datetime=appt_datetime,
-                    source='DIRECT',
-                    status='CHECKED_IN',
-                    note=form.cleaned_data['note'],
-                )
-                messages.success(
-                    request,
-                    f'✓ Đã đặt lịch hẹn cho bệnh nhân {patient.full_name}. '
-                    f'Bệnh nhân đã được xếp vào hàng đợi phòng khám của bác sĩ.'
-                )
-                return redirect('reception:appointment_list')
+                ).exclude(status='CANCELLED').exists()
+
+                # Một bệnh nhân không thể có mặt ở 2 nơi cùng lúc, dù khác bác sĩ
+                self_conflict = Appointment.objects.filter(
+                    patient=patient,
+                    appt_datetime=appt_datetime,
+                ).exclude(status='CANCELLED').exists()
+
+                if conflict:
+                    messages.error(
+                        request,
+                        f'⚠ Bác sĩ {doctor.get_full_name() or doctor.username} '
+                        f'đã có lịch khám vào lúc {appt_datetime.strftime("%H:%M %d/%m/%Y")}. '
+                        f'Vui lòng chọn thời gian khác.'
+                    )
+                elif self_conflict:
+                    messages.error(
+                        request,
+                        f'⚠ Bệnh nhân {patient.full_name} đã có một lịch hẹn khác vào '
+                        f'đúng khung giờ này. Vui lòng chọn thời gian khác.'
+                    )
+                else:
+                    # Tạo lịch hẹn với status CHECKED_IN (walk-in)
+                    appt = Appointment.objects.create(
+                        patient=patient,
+                        doctor=doctor,
+                        appt_datetime=appt_datetime,
+                        source='DIRECT',
+                        status='CHECKED_IN',
+                        note=form.cleaned_data['note'],
+                    )
+                    messages.success(
+                        request,
+                        f'✓ Đã đặt lịch hẹn cho bệnh nhân {patient.full_name}. '
+                        f'Bệnh nhân đã được xếp vào hàng đợi phòng khám của bác sĩ.'
+                    )
+                    return redirect('reception:appointment_list')
     else:
         form = WalkInAppointmentForm()
     
@@ -190,25 +207,29 @@ def approve_appointment(request, pk):
     appt = get_object_or_404(Appointment, pk=pk, status='PENDING')
     
     if request.method == 'POST':
-        # Kiểm tra lại xung đột trước khi duyệt
-        conflict = Appointment.objects.filter(
-            doctor=appt.doctor,
-            appt_datetime=appt.appt_datetime,
-            status__in=['CONFIRMED', 'CHECKED_IN'],
-        ).exclude(pk=appt.pk).exists()
-        
-        if conflict:
-            messages.error(
-                request,
-                f'⚠ Đã có lịch khác được duyệt vào khung giờ này. Vui lòng từ chối lịch này.'
-            )
-        else:
-            appt.status = 'CONFIRMED'
-            appt.save()
-            messages.success(
-                request,
-                f'✓ Đã duyệt lịch hẹn của bệnh nhân {appt.patient.full_name}.'
-            )
+        with transaction.atomic():
+            # Khóa dòng tài khoản bác sĩ trong lúc kiểm tra + duyệt lịch,
+            # tránh duyệt trùng khi 2 lễ tân thao tác cùng lúc
+            User.objects.select_for_update().get(pk=appt.doctor.pk)
+
+            conflict = Appointment.objects.filter(
+                doctor=appt.doctor,
+                appt_datetime=appt.appt_datetime,
+                status__in=['CONFIRMED', 'CHECKED_IN'],
+            ).exclude(pk=appt.pk).exists()
+
+            if conflict:
+                messages.error(
+                    request,
+                    f'⚠ Đã có lịch khác được duyệt vào khung giờ này. Vui lòng từ chối lịch này.'
+                )
+            else:
+                appt.status = 'CONFIRMED'
+                appt.save()
+                messages.success(
+                    request,
+                    f'✓ Đã duyệt lịch hẹn của bệnh nhân {appt.patient.full_name}.'
+                )
         return redirect('reception:pending_queue')
     
     return render(request, 'reception/approve_confirm.html', {'appointment': appt})
@@ -216,16 +237,52 @@ def approve_appointment(request, pk):
 
 @role_required('RECEPTIONIST', 'ADMIN')
 def reject_appointment(request, pk):
-    """Từ chối/hủy 1 lịch hẹn (chuyển sang CANCELLED)."""
-    appt = get_object_or_404(Appointment, pk=pk)
-    
+    """
+    Từ chối/hủy 1 lịch hẹn (chuyển sang CANCELLED).
+    Chỉ áp dụng cho lịch chưa khám (PENDING/CONFIRMED/CHECKED_IN);
+    không cho hủy lịch đã COMPLETED hoặc đã CANCELLED trước đó.
+    """
+    appt = get_object_or_404(
+        Appointment, pk=pk,
+        status__in=['PENDING', 'CONFIRMED', 'CHECKED_IN'],
+    )
+
     if request.method == 'POST':
+        reason = request.POST.get('reason', '').strip()
+        if not reason:
+            messages.error(request, 'Vui lòng nhập lý do từ chối/hủy lịch hẹn.')
+            return render(request, 'reception/reject_confirm.html', {'appointment': appt})
+
         appt.status = 'CANCELLED'
+        appt.rejection_reason = reason
         appt.save()
         messages.success(request, 'Đã hủy lịch hẹn.')
         return redirect('reception:pending_queue')
-    
+
     return render(request, 'reception/reject_confirm.html', {'appointment': appt})
+
+
+@role_required('RECEPTIONIST', 'ADMIN')
+def checkin_appointment(request, pk):
+    """
+    Check-in bệnh nhân khi đến khám.
+    Chuyển lịch đã xác nhận (CONFIRMED) sang CHECKED_IN để đưa vào
+    hàng đợi khám của bác sĩ.
+    """
+    appt = get_object_or_404(Appointment, pk=pk, status='CONFIRMED')
+
+    if request.method == 'POST':
+        appt.status = 'CHECKED_IN'
+        appt.save()
+        messages.success(
+            request,
+            f'✓ Đã check-in cho bệnh nhân {appt.patient.full_name}. '
+            f'Bệnh nhân đã được đưa vào hàng đợi khám của bác sĩ.'
+        )
+        return redirect('reception:appointment_list')
+
+    return render(request, 'reception/checkin_confirm.html', {'appointment': appt})
+
 
 @role_required('RECEPTIONIST', 'ADMIN')
 def appointment_list(request):

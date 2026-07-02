@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Check-in bệnh nhân{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> Xác nhận check-in</h4>
+            </div>
+            <div class="card-body">
+                <p>Xác nhận bệnh nhân đã đến khám? Lịch hẹn sẽ được đưa vào hàng đợi của bác sĩ.</p>
+                <table class="table">
+                    <tr><th>Bệnh nhân:</th><td>{{ appointment.patient.full_name }}</td></tr>
+                    <tr><th>SĐT:</th><td>{{ appointment.patient.phone }}</td></tr>
+                    <tr><th>Bác sĩ:</th><td>{{ appointment.doctor.get_full_name|default:appointment.doctor.username }}</td></tr>
+                    <tr><th>Thời gian:</th><td>{{ appointment.appt_datetime|date:"H:i - d/m/Y" }}</td></tr>
+                </table>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check"></i> Xác nhận check-in
+                    </button>
+                    <a href="{% url 'reception:appointment_list' %}" class="btn btn-secondary">Hủy</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

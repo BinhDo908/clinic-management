@@ -7,8 +7,9 @@ from accounts import views as accounts_views
 urlpatterns = [
     path('', portal_views.home, name='home'),
     path('dashboard/', accounts_views.dashboard, name='dashboard'),
+    path('account/', include('accounts.urls')),
     path('admin/', admin.site.urls),
-    path('login/', auth_views.LoginView.as_view(), name='login'),
+    path('login/', accounts_views.RoleAwareLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('pharmacy/', include('pharmacy.urls')),
     path('reception/', include('reception.urls')),

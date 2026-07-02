@@ -28,6 +28,7 @@ class Appointment(models.Model):
     source = models.CharField(max_length=10, choices=SOURCE_CHOICES)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='PENDING')
     note = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True, verbose_name='Lý do từ chối/hủy')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

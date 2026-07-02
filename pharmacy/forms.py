@@ -5,12 +5,13 @@ from .models import Medicine
 class MedicineForm(forms.ModelForm):
     class Meta:
         model = Medicine
-        fields = ['medicine_name', 'unit', 'unit_price', 'stock_quantity', 'description']
+        fields = ['medicine_name', 'unit', 'unit_price', 'stock_quantity', 'expiry_date', 'description']
         widgets = {
             'medicine_name': forms.TextInput(attrs={'class': 'form-control'}),
             'unit': forms.Select(attrs={'class': 'form-select'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'stock_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'expiry_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
         labels = {
@@ -18,6 +19,7 @@ class MedicineForm(forms.ModelForm):
             'unit': 'Đơn vị',
             'unit_price': 'Đơn giá (VNĐ)',
             'stock_quantity': 'Số lượng tồn kho',
+            'expiry_date': 'Hạn sử dụng',
             'description': 'Mô tả / Công dụng',
         }
 

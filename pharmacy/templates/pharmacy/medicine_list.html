@@ -11,8 +11,24 @@
 
 {% if low_stock_count > 0 %}
 <div class="alert alert-warning">
-    <i class="bi bi-exclamation-triangle"></i> 
+    <i class="bi bi-exclamation-triangle"></i>
     Có <strong>{{ low_stock_count }}</strong> loại thuốc đang sắp hết (dưới 10 đơn vị).
+</div>
+{% endif %}
+
+{% if expired_count > 0 %}
+<div class="alert alert-danger">
+    <i class="bi bi-x-octagon"></i>
+    Có <strong>{{ expired_count }}</strong> loại thuốc đã <strong>hết hạn sử dụng</strong> —
+    không thể dùng để kê đơn, cần loại bỏ khỏi kho.
+</div>
+{% endif %}
+
+{% if near_expiry_count > 0 %}
+<div class="alert alert-warning">
+    <i class="bi bi-hourglass-split"></i>
+    Có <strong>{{ near_expiry_count }}</strong> loại thuốc sắp hết hạn trong
+    {{ near_expiry_days }} ngày tới.
 </div>
 {% endif %}
 
@@ -36,6 +52,7 @@
                     <th>Đơn vị</th>
                     <th>Đơn giá</th>
                     <th>Tồn kho</th>
+                    <th>Hạn sử dụng</th>
                     <th>Hành động</th>
                 </tr>
             </thead>
@@ -51,6 +68,23 @@
                             <span class="badge bg-danger">{{ med.stock_quantity }}</span>
                         {% else %}
                             <span class="badge bg-success">{{ med.stock_quantity }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if med.expiry_date %}
+                            {% if med.is_expired %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-x-octagon"></i> Hết hạn {{ med.expiry_date|date:"d/m/Y" }}
+                                </span>
+                            {% elif med.is_near_expiry %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-hourglass-split"></i> {{ med.expiry_date|date:"d/m/Y" }}
+                                </span>
+                            {% else %}
+                                {{ med.expiry_date|date:"d/m/Y" }}
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td>
@@ -70,7 +104,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted">
+                    <td colspan="7" class="text-center text-muted">
                         Chưa có thuốc nào trong danh mục.
                     </td>
                 </tr>

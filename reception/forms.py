@@ -66,7 +66,9 @@ class PatientCreateForm(forms.ModelForm):
 
 class WalkInAppointmentForm(forms.Form):
     """Form tạo lịch hẹn trực tiếp tại quầy (walk-in)."""
-    
+
+    MAX_ADVANCE_DAYS = 60  # Không cho đặt lịch xa hơn 60 ngày kể từ hôm nay
+
     doctor = forms.ModelChoiceField(
         queryset=User.objects.filter(role='DOCTOR', is_active=True),
         label='Bác sĩ khám',
@@ -102,6 +104,13 @@ class WalkInAppointmentForm(forms.Form):
         # Không được đặt lịch trong quá khứ
         if appt_dt <= now:
             raise forms.ValidationError('Không thể đặt lịch trong quá khứ. Vui lòng chọn thời gian trong tương lai.')
+
+        # Không cho đặt lịch quá xa trong tương lai (tránh nhập nhầm năm/tháng)
+        from datetime import timedelta
+        if appt_dt > now + timedelta(days=self.MAX_ADVANCE_DAYS):
+            raise forms.ValidationError(
+                f'Chỉ có thể đặt lịch trước tối đa {self.MAX_ADVANCE_DAYS} ngày kể từ hôm nay.'
+            )
 
         # Không được đặt vào cuối tuần
         if appt_dt.weekday() >= 5:

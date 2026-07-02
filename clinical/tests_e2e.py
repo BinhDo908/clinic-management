@@ -7,10 +7,12 @@ Chạy:  python manage.py test clinical.tests_e2e -v 2
 Django tự tạo database test riêng (test_ClinicDB) và xóa sau khi chạy,
 KHÔNG ảnh hưởng dữ liệu thật trong ClinicDB.
 """
+import threading
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase, Client
+from django.db import connection
+from django.test import TestCase, TransactionTestCase, Client
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -94,6 +96,31 @@ class AuthTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertIn('change-password', r.url)
 
+    def test_TC_AUTH_06_benh_nhan_dang_nhap_nham_tab_nhan_vien(self):
+        """Bệnh nhân đăng nhập ở tab Nhân viên (login_as=staff) -> bị từ chối dù đúng mật khẩu."""
+        make_user('0911111111', 'PATIENT', phone='0911111111')
+        r = self.c.post('/login/', {
+            'username': '0911111111', 'password': 'matkhau123', 'login_as': 'staff',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.wsgi_request.user.is_authenticated)
+
+    def test_TC_AUTH_07_nhan_vien_dang_nhap_nham_tab_benh_nhan(self):
+        """Nhân viên đăng nhập ở tab Bệnh nhân (login_as=patient) -> bị từ chối dù đúng mật khẩu."""
+        r = self.c.post('/login/', {
+            'username': 'bs_an', 'password': 'matkhau123', 'login_as': 'patient',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.wsgi_request.user.is_authenticated)
+
+    def test_TC_AUTH_08_dang_nhap_dung_tab_van_thanh_cong(self):
+        """Đăng nhập đúng tab tương ứng vai trò -> vẫn thành công bình thường."""
+        r = self.c.post('/login/', {
+            'username': 'bs_an', 'password': 'matkhau123', 'login_as': 'staff',
+        }, follow=True)
+        self.assertTrue(r.wsgi_request.user.is_authenticated)
+        self.assertEqual(r.request['PATH_INFO'], '/doctor/')
+
 
 # ===========================================================================
 # NHÓM 2: KHO THUỐC (PHARMACY)
@@ -155,6 +182,20 @@ class PharmacyTests(TestCase):
         r = self.c.get('/pharmacy/?q=Para')
         self.assertContains(r, 'Paracetamol')
         self.assertNotContains(r, 'Aspirin')
+
+    def test_TC_PHA_07_canh_bao_thuoc_het_han_va_sap_het_han(self):
+        """Danh sách thuốc đếm đúng số thuốc đã hết hạn và sắp hết hạn."""
+        today = timezone.localdate()
+        Medicine.objects.create(medicine_name='Thuoc con han', unit='VIEN', unit_price=1000,
+                                stock_quantity=10, expiry_date=today + timedelta(days=200))
+        Medicine.objects.create(medicine_name='Thuoc sap het han', unit='VIEN', unit_price=1000,
+                                stock_quantity=10, expiry_date=today + timedelta(days=10))
+        Medicine.objects.create(medicine_name='Thuoc da het han', unit='VIEN', unit_price=1000,
+                                stock_quantity=10, expiry_date=today - timedelta(days=5))
+        r = self.c.get('/pharmacy/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context['expired_count'], 1)
+        self.assertEqual(r.context['near_expiry_count'], 1)
 
 
 # ===========================================================================
@@ -221,6 +262,32 @@ class ReceptionTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(Appointment.objects.filter(patient=p).count(), 1)
 
+    def test_TC_REC_05b_walkin_trung_gio_khac_bac_si(self):
+        """Bệnh nhân đã có lịch ở khung giờ X -> không đặt thêm lịch khác (dù khác bác sĩ) cùng giờ đó."""
+        p = Patient.objects.create(full_name='BN', phone='0912345678')
+        doctor2 = make_user('bs_binh_rec', 'DOCTOR', phone='0900000007')
+        slot = next_working_slot(hour=8)
+        Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                   source='DIRECT', status='CHECKED_IN')
+        r = self.c.post(f'/reception/appointment/walkin/{p.pk}/', {
+            'doctor': doctor2.pk, 'appt_datetime': fmt(slot), 'note': '',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(patient=p).count(), 1)
+
+    def test_TC_REC_05c_walkin_qua_xa_tuong_lai(self):
+        """Đặt lịch walk-in quá 60 ngày trong tương lai -> báo lỗi, không tạo."""
+        p = Patient.objects.create(full_name='BN', phone='0912345678')
+        far = timezone.localtime(timezone.now()) + timedelta(days=100)
+        while far.weekday() >= 5:
+            far += timedelta(days=1)
+        far = far.replace(hour=8, minute=0, second=0, microsecond=0)
+        r = self.c.post(f'/reception/appointment/walkin/{p.pk}/', {
+            'doctor': self.doctor.pk, 'appt_datetime': fmt(far), 'note': '',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(patient=p).count(), 0)
+
     def test_TC_REC_06_walkin_thoi_gian_qua_khu(self):
         """Đặt lịch trong quá khứ -> form báo lỗi."""
         p = Patient.objects.create(full_name='BN', phone='0912345678')
@@ -253,15 +320,29 @@ class ReceptionTests(TestCase):
         self.assertEqual(appt.status, 'CONFIRMED')
 
     def test_TC_REC_09_tu_choi_lich(self):
-        """Từ chối lịch -> chuyển CANCELLED."""
+        """Từ chối lịch kèm lý do -> chuyển CANCELLED, lưu đúng lý do."""
         p = Patient.objects.create(full_name='BN', phone='0912345678')
         slot = next_working_slot(hour=8)
         appt = Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
                                           source='WEB', status='PENDING')
-        r = self.c.post(f'/reception/appointment/{appt.pk}/reject/')
+        r = self.c.post(f'/reception/appointment/{appt.pk}/reject/', {
+            'reason': 'Bác sĩ bận đột xuất',
+        })
         self.assertEqual(r.status_code, 302)
         appt.refresh_from_db()
         self.assertEqual(appt.status, 'CANCELLED')
+        self.assertEqual(appt.rejection_reason, 'Bác sĩ bận đột xuất')
+
+    def test_TC_REC_09b_tu_choi_thieu_ly_do(self):
+        """Từ chối lịch nhưng bỏ trống lý do -> báo lỗi, không đổi trạng thái."""
+        p = Patient.objects.create(full_name='BN', phone='0912345678')
+        slot = next_working_slot(hour=8)
+        appt = Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                          source='WEB', status='PENDING')
+        r = self.c.post(f'/reception/appointment/{appt.pk}/reject/', {'reason': '   '})
+        self.assertEqual(r.status_code, 200)
+        appt.refresh_from_db()
+        self.assertEqual(appt.status, 'PENDING')
 
     def test_TC_REC_10_tim_kiem_benh_nhan(self):
         Patient.objects.create(full_name='Trần Văn B', phone='0901111111')
@@ -269,6 +350,41 @@ class ReceptionTests(TestCase):
         r = self.c.get('/reception/patient/list/?q=Trần')
         self.assertContains(r, 'Trần Văn B')
         self.assertNotContains(r, 'Lê Thị C')
+
+    def test_TC_REC_11_checkin_len_hang_doi_bac_si(self):
+        """Check-in lịch đã duyệt (CONFIRMED) -> CHECKED_IN và lên hàng đợi của bác sĩ."""
+        p = Patient.objects.create(full_name='BN Online', phone='0912345678')
+        slot = next_working_slot(hour=8)
+        appt = Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                          source='WEB', status='CONFIRMED')
+        r = self.c.post(f'/reception/appointment/{appt.pk}/checkin/')
+        self.assertEqual(r.status_code, 302)
+        appt.refresh_from_db()
+        self.assertEqual(appt.status, 'CHECKED_IN')
+        # Lịch xuất hiện trong hàng đợi khám của bác sĩ
+        doc_client = Client()
+        doc_client.force_login(self.doctor)
+        self.assertContains(doc_client.get('/doctor/'), 'BN Online')
+
+    def test_TC_REC_12_khong_checkin_lich_chua_duyet(self):
+        """Không check-in được lịch chưa duyệt (PENDING) -> 404."""
+        p = Patient.objects.create(full_name='BN', phone='0912345678')
+        slot = next_working_slot(hour=8)
+        appt = Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                          source='WEB', status='PENDING')
+        r = self.c.post(f'/reception/appointment/{appt.pk}/checkin/')
+        self.assertEqual(r.status_code, 404)
+
+    def test_TC_REC_13_khong_huy_lich_da_hoan_tat(self):
+        """Không thể hủy (reject) lịch đã COMPLETED -> 404, tránh biến bệnh án đã khám thành đã hủy."""
+        p = Patient.objects.create(full_name='BN', phone='0912345678')
+        slot = next_working_slot(hour=8)
+        appt = Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                          source='DIRECT', status='COMPLETED')
+        r = self.c.post(f'/reception/appointment/{appt.pk}/reject/')
+        self.assertEqual(r.status_code, 404)
+        appt.refresh_from_db()
+        self.assertEqual(appt.status, 'COMPLETED')
 
 
 # ===========================================================================
@@ -330,6 +446,32 @@ class DoctorTests(TestCase):
         self.assertEqual(self.appt.status, 'CHECKED_IN')  # chưa hoàn tất
         self.assertEqual(MedicalRecord.objects.filter(appointment=self.appt).count(), 0)
 
+    def test_TC_DOC_03b_ke_don_so_luong_am(self):
+        """Kê số lượng âm -> báo lỗi & rollback, KHÔNG được cộng ngược vào tồn kho."""
+        r = self.c.post(f'/doctor/examine/{self.appt.pk}/', {
+            'symptoms': 'Sốt', 'diagnosis': 'Cúm', 'clinical_notes': '',
+            'medicine_id[]': [str(self.med.pk)], 'quantity[]': ['-5'],
+            'dosage[]': ['x'],
+        })
+        self.assertEqual(r.status_code, 200)
+        self.med.refresh_from_db()
+        self.appt.refresh_from_db()
+        self.assertEqual(self.med.stock_quantity, 50)  # không đổi (không bị cộng ngược)
+        self.assertEqual(self.appt.status, 'CHECKED_IN')
+        self.assertEqual(MedicalRecord.objects.filter(appointment=self.appt).count(), 0)
+
+    def test_TC_DOC_03c_ke_don_so_luong_bang_khong(self):
+        """Kê số lượng bằng 0 -> báo lỗi & rollback, không tạo bệnh án."""
+        r = self.c.post(f'/doctor/examine/{self.appt.pk}/', {
+            'symptoms': 'Sốt', 'diagnosis': 'Cúm', 'clinical_notes': '',
+            'medicine_id[]': [str(self.med.pk)], 'quantity[]': ['0'],
+            'dosage[]': ['x'],
+        })
+        self.assertEqual(r.status_code, 200)
+        self.med.refresh_from_db()
+        self.assertEqual(self.med.stock_quantity, 50)
+        self.assertEqual(MedicalRecord.objects.filter(appointment=self.appt).count(), 0)
+
     def test_TC_DOC_04_kham_lai_ca_da_hoan_tat(self):
         """Mở lại ca đã COMPLETED -> chặn, redirect về hàng đợi."""
         self.appt.status = 'COMPLETED'
@@ -345,6 +487,34 @@ class DoctorTests(TestCase):
                                                  status='CHECKED_IN')
         r = self.c.get(f'/doctor/examine/{other_appt.pk}/')
         self.assertEqual(r.status_code, 404)
+
+    def test_TC_DOC_06_thuoc_het_han_khong_hien_de_chon(self):
+        """Thuốc đã hết hạn sử dụng -> không xuất hiện trong danh sách thuốc để bác sĩ chọn."""
+        expired = Medicine.objects.create(
+            medicine_name='Thuoc Het Han', unit='VIEN', unit_price=Decimal('5000'),
+            stock_quantity=50, expiry_date=timezone.localdate() - timedelta(days=1),
+        )
+        r = self.c.get(f'/doctor/examine/{self.appt.pk}/')
+        ids = [m['id'] for m in r.context['medicines_data']]
+        self.assertNotIn(expired.medicine_id, ids)
+
+    def test_TC_DOC_07_khong_ke_don_thuoc_het_han(self):
+        """Kê đơn thuốc đã hết hạn (gửi thẳng id, bỏ qua UI) -> báo lỗi & rollback toàn bộ."""
+        expired = Medicine.objects.create(
+            medicine_name='Thuoc Het Han', unit='VIEN', unit_price=Decimal('5000'),
+            stock_quantity=50, expiry_date=timezone.localdate() - timedelta(days=1),
+        )
+        r = self.c.post(f'/doctor/examine/{self.appt.pk}/', {
+            'symptoms': 'Sốt', 'diagnosis': 'Cúm', 'clinical_notes': '',
+            'medicine_id[]': [str(expired.pk)], 'quantity[]': ['1'],
+            'dosage[]': ['x'],
+        })
+        self.assertEqual(r.status_code, 200)
+        expired.refresh_from_db()
+        self.appt.refresh_from_db()
+        self.assertEqual(expired.stock_quantity, 50)  # không đổi
+        self.assertEqual(self.appt.status, 'CHECKED_IN')  # chưa hoàn tất
+        self.assertEqual(MedicalRecord.objects.filter(appointment=self.appt).count(), 0)
 
 
 # ===========================================================================
@@ -484,6 +654,47 @@ class PortalTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(Appointment.objects.filter(patient=p).count(), 0)
 
+    def test_TC_POR_06b_tu_dat_trung_gio_khac_bac_si(self):
+        """Bệnh nhân đã có lịch ở khung giờ X -> không đặt thêm lịch khác (dù khác bác sĩ) cùng giờ đó."""
+        u, p = self._register_and_login()
+        doctor2 = make_user('bs_binh_por', 'DOCTOR', phone='0900000006')
+        slot = next_working_slot(hour=9)
+        Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                   source='WEB', status='PENDING')
+        r = self.c.post('/portal/book/', {
+            'doctor': doctor2.pk, 'appt_datetime': fmt(slot), 'note': '',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(patient=p).count(), 1)
+
+    def test_TC_POR_06c_dat_lich_qua_xa_tuong_lai(self):
+        """Đặt lịch quá 60 ngày trong tương lai -> báo lỗi, không tạo."""
+        u, p = self._register_and_login()
+        far = timezone.localtime(timezone.now()) + timedelta(days=100)
+        while far.weekday() >= 5:
+            far += timedelta(days=1)
+        far = far.replace(hour=9, minute=0, second=0, microsecond=0)
+        r = self.c.post('/portal/book/', {
+            'doctor': self.doctor.pk, 'appt_datetime': fmt(far), 'note': '',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(patient=p).count(), 0)
+
+    def test_TC_POR_06d_gioi_han_so_lich_dang_cho_duyet(self):
+        """Bệnh nhân đã có đủ 3 lịch PENDING -> không đặt thêm được lịch mới."""
+        u, p = self._register_and_login()
+        for i in range(3):
+            slot = next_working_slot(hour=9, days_ahead=1 + i)
+            Appointment.objects.create(patient=p, doctor=self.doctor, appt_datetime=slot,
+                                       source='WEB', status='PENDING')
+
+        new_slot = next_working_slot(hour=10, days_ahead=10)
+        r = self.c.post('/portal/book/', {
+            'doctor': self.doctor.pk, 'appt_datetime': fmt(new_slot), 'note': '',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(patient=p, status='PENDING').count(), 3)
+
     def test_TC_POR_07_dat_lich_qua_khu(self):
         u, p = self._register_and_login()
         past = timezone.localtime(timezone.now()) - timedelta(days=1)
@@ -521,6 +732,17 @@ class PortalTests(TestCase):
                                    source='WEB', status='COMPLETED')
         r = self.c.get('/portal/history/')
         self.assertEqual(r.status_code, 200)
+
+    def test_TC_POR_11_xem_ly_do_lich_bi_tu_choi(self):
+        """Bệnh nhân thấy được lý do khi lịch bị lễ tân từ chối."""
+        u, p = self._register_and_login()
+        slot = next_working_slot(hour=9)
+        Appointment.objects.create(
+            patient=p, doctor=self.doctor, appt_datetime=slot,
+            source='WEB', status='CANCELLED', rejection_reason='Bác sĩ bận đột xuất',
+        )
+        r = self.c.get('/portal/appointments/')
+        self.assertContains(r, 'Bác sĩ bận đột xuất')
 
 
 # ===========================================================================
@@ -636,3 +858,104 @@ class AccountFeatureTests(TestCase):
         self.assertEqual(p.full_name, 'Trần Văn C')
         self.assertEqual(p.gender, 'M')
         self.assertEqual(p.address, 'Hà Nội')
+
+
+# ===========================================================================
+# NHÓM 9: QUẢN LÝ TÀI KHOẢN NHÂN VIÊN (chỉ Admin)
+# ===========================================================================
+class StaffManagementTests(TestCase):
+    def setUp(self):
+        self.c = Client()
+        self.admin = make_user('admin01', 'ADMIN', phone='0900000005')
+        self.le_tan = make_user('letan01', 'RECEPTIONIST', phone='0900000003')
+
+    def test_TC_ACC_07_admin_tao_tai_khoan_nhan_vien(self):
+        """Admin tạo tài khoản bác sĩ mới -> đúng role, mật khẩu mặc định, bắt buộc đổi lần đầu."""
+        self.c.force_login(self.admin)
+        r = self.c.post('/account/staff/create/', {
+            'full_name': 'Nguyễn Văn Bác Sĩ', 'username': 'bacsi_moi',
+            'phone': '0933333333', 'role': 'DOCTOR',
+        })
+        self.assertEqual(r.status_code, 302)
+        u = User.objects.get(username='bacsi_moi')
+        self.assertEqual(u.role, 'DOCTOR')
+        self.assertTrue(u.check_password('123456'))
+        self.assertTrue(u.must_change_password)
+
+    def test_TC_ACC_08_tao_trung_ten_dang_nhap(self):
+        """Tạo tài khoản trùng tên đăng nhập -> báo lỗi, không tạo trùng."""
+        self.c.force_login(self.admin)
+        r = self.c.post('/account/staff/create/', {
+            'full_name': 'B', 'username': 'letan01', 'phone': '', 'role': 'RECEPTIONIST',
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(User.objects.filter(username='letan01').count(), 1)
+
+    def test_TC_ACC_09_khong_phai_admin_bi_chan(self):
+        """Lễ tân (không phải Admin) truy cập trang tạo nhân viên -> bị chặn."""
+        self.c.force_login(self.le_tan)
+        r = self.c.get('/account/staff/create/')
+        self.assertEqual(r.status_code, 302)
+
+    def test_TC_ACC_10_khoa_mo_khoa_tai_khoan(self):
+        """Admin khóa rồi mở khóa tài khoản nhân viên khác."""
+        self.c.force_login(self.admin)
+        r = self.c.post(f'/account/staff/{self.le_tan.pk}/toggle/')
+        self.assertEqual(r.status_code, 302)
+        self.le_tan.refresh_from_db()
+        self.assertFalse(self.le_tan.is_active)
+
+        r = self.c.post(f'/account/staff/{self.le_tan.pk}/toggle/')
+        self.le_tan.refresh_from_db()
+        self.assertTrue(self.le_tan.is_active)
+
+    def test_TC_ACC_11_khong_tu_khoa_chinh_minh(self):
+        """Admin không thể tự khóa tài khoản của chính mình."""
+        self.c.force_login(self.admin)
+        r = self.c.post(f'/account/staff/{self.admin.pk}/toggle/')
+        self.assertEqual(r.status_code, 302)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+
+# ===========================================================================
+# NHÓM 10: KIỂM TRA RACE CONDITION (đặt lịch đồng thời)
+# ===========================================================================
+class ConcurrencyTests(TransactionTestCase):
+    """
+    Dùng TransactionTestCase (không rollback bằng transaction ảo như TestCase)
+    để 2 luồng thật sự chạy song song trên cùng database, mô phỏng đúng tình
+    huống 2 bệnh nhân bấm đặt lịch cùng lúc. Xác nhận select_for_update() đã
+    khóa đúng, không để lọt 2 lịch trùng giờ của cùng 1 bác sĩ.
+    """
+
+    def setUp(self):
+        self.doctor = make_user('bs_dong_thoi', 'DOCTOR', phone='0900000099')
+        self.u1 = make_user('0911111111', 'PATIENT', phone='0911111111')
+        self.u2 = make_user('0922222222', 'PATIENT', phone='0922222222')
+        Patient.objects.create(account=self.u1, full_name='BN Một', phone='0911111111')
+        Patient.objects.create(account=self.u2, full_name='BN Hai', phone='0922222222')
+        self.slot = next_working_slot(hour=9)
+
+    def test_TC_CONC_01_khong_dat_trung_lich_khi_dat_dong_thoi(self):
+        """2 bệnh nhân đặt cùng lúc cùng khung giờ, cùng bác sĩ -> chỉ 1 lịch được tạo."""
+
+        def book(user):
+            client = Client()
+            client.force_login(user)
+            client.post('/portal/book/', {
+                'doctor': self.doctor.pk, 'appt_datetime': fmt(self.slot), 'note': '',
+            })
+            connection.close()  # mỗi thread tự đóng kết nối DB riêng của nó
+
+        t1 = threading.Thread(target=book, args=(self.u1,))
+        t2 = threading.Thread(target=book, args=(self.u2,))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        active_count = Appointment.objects.filter(
+            doctor=self.doctor, appt_datetime=self.slot,
+        ).exclude(status='CANCELLED').count()
+        self.assertEqual(active_count, 1)

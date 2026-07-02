@@ -94,18 +94,27 @@ class OnlineAppointmentForm(forms.Form):
         })
     )
 
+    MAX_ADVANCE_DAYS = 60  # Không cho đặt lịch xa hơn 60 ngày kể từ hôm nay
+
     def clean_appt_datetime(self):
         from django.utils import timezone
+        from datetime import timedelta
         appt_time = self.cleaned_data['appt_datetime']
+        now = timezone.now()
 
         # Không cho đặt lịch trong quá khứ
-        if appt_time < timezone.now():
+        if appt_time < now:
             raise forms.ValidationError('Không thể đặt lịch trong quá khứ.')
 
         # Phải đặt trước ít nhất 1 giờ
-        from datetime import timedelta
-        if appt_time < timezone.now() + timedelta(hours=1):
+        if appt_time < now + timedelta(hours=1):
             raise forms.ValidationError('Vui lòng đặt lịch trước ít nhất 1 giờ.')
+
+        # Không cho đặt lịch quá xa trong tương lai (tránh nhập nhầm năm/tháng)
+        if appt_time > now + timedelta(days=self.MAX_ADVANCE_DAYS):
+            raise forms.ValidationError(
+                f'Chỉ có thể đặt lịch trước tối đa {self.MAX_ADVANCE_DAYS} ngày kể từ hôm nay.'
+            )
 
         return appt_time
 

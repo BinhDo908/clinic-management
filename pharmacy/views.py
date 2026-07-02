@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Q
+from django.utils import timezone
 from accounts.decorators import role_required
 from .models import Medicine
 from .forms import MedicineForm, StockInForm
@@ -13,11 +16,21 @@ def medicine_list(request):
     if query:
         medicines = medicines.filter(Q(medicine_name__icontains=query))
     low_stock_count = medicines.filter(stock_quantity__lt=10).count()
-    
+
+    today = timezone.localdate()
+    expired_count = medicines.filter(expiry_date__lt=today).count()
+    near_expiry_count = medicines.filter(
+        expiry_date__gte=today,
+        expiry_date__lte=today + timedelta(days=Medicine.NEAR_EXPIRY_DAYS),
+    ).count()
+
     return render(request, 'pharmacy/medicine_list.html', {
         'medicines': medicines,
         'query': query,
         'low_stock_count': low_stock_count,
+        'expired_count': expired_count,
+        'near_expiry_count': near_expiry_count,
+        'near_expiry_days': Medicine.NEAR_EXPIRY_DAYS,
     })
 
 

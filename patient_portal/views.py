@@ -148,6 +148,9 @@ def my_dashboard(request):
         'history_count': history_count,
     })
 
+MAX_PENDING_APPOINTMENTS = 3  # Số lịch "chờ duyệt" tối đa 1 bệnh nhân được giữ cùng lúc
+
+
 @role_required('PATIENT')
 def book_appointment(request):
     """Bệnh nhân đặt lịch hẹn online (status = PENDING)."""
@@ -161,31 +164,56 @@ def book_appointment(request):
             doctor = form.cleaned_data['doctor']
             appt_datetime = form.cleaned_data['appt_datetime']
 
-            # Kiểm tra xung đột lịch (giống module Lễ tân)
-            conflict = Appointment.objects.filter(
-                doctor=doctor,
-                appt_datetime=appt_datetime,
-            ).exclude(status='CANCELLED').exists()
+            with transaction.atomic():
+                # Khóa dòng tài khoản bác sĩ + hồ sơ bệnh nhân trong lúc kiểm tra + tạo lịch,
+                # tránh đặt trùng giờ cùng lúc lọt qua kiểm tra xung đột
+                User.objects.select_for_update().get(pk=doctor.pk)
+                Patient.objects.select_for_update().get(pk=patient.pk)
 
-            if conflict:
-                messages.error(
-                    request,
-                    'Khung giờ này vừa có người đặt thành công, vui lòng chọn khung giờ khác!'
-                )
-            else:
-                Appointment.objects.create(
-                    patient=patient,
+                conflict = Appointment.objects.filter(
                     doctor=doctor,
                     appt_datetime=appt_datetime,
-                    source='WEB',
-                    status='PENDING',  # Chờ Lễ tân duyệt
-                    note=form.cleaned_data.get('note', ''),
-                )
-                messages.success(
-                    request,
-                    'Đặt lịch thành công! Lễ tân sẽ gọi điện xác nhận trong thời gian sớm nhất.'
-                )
-                return redirect('patient_portal:my_appointments')
+                ).exclude(status='CANCELLED').exists()
+
+                # Một bệnh nhân không thể có mặt ở 2 nơi cùng lúc, dù khác bác sĩ
+                self_conflict = Appointment.objects.filter(
+                    patient=patient,
+                    appt_datetime=appt_datetime,
+                ).exclude(status='CANCELLED').exists()
+
+                if conflict:
+                    messages.error(
+                        request,
+                        'Khung giờ này vừa có người đặt thành công, vui lòng chọn khung giờ khác!'
+                    )
+                elif self_conflict:
+                    messages.error(
+                        request,
+                        'Bạn đã có một lịch hẹn khác vào đúng khung giờ này. '
+                        'Vui lòng chọn thời gian khác.'
+                    )
+                elif Appointment.objects.filter(patient=patient, status='PENDING').count() >= MAX_PENDING_APPOINTMENTS:
+                    # Chặn đặt lịch tràn lan: bệnh nhân phải chờ lễ tân duyệt/xử lý
+                    # bớt các lịch đang chờ trước khi đặt thêm
+                    messages.error(
+                        request,
+                        f'Bạn đang có {MAX_PENDING_APPOINTMENTS} lịch hẹn chờ duyệt. '
+                        f'Vui lòng chờ Lễ tân xử lý trước khi đặt thêm lịch mới.'
+                    )
+                else:
+                    Appointment.objects.create(
+                        patient=patient,
+                        doctor=doctor,
+                        appt_datetime=appt_datetime,
+                        source='WEB',
+                        status='PENDING',  # Chờ Lễ tân duyệt
+                        note=form.cleaned_data.get('note', ''),
+                    )
+                    messages.success(
+                        request,
+                        'Đặt lịch thành công! Lễ tân sẽ gọi điện xác nhận trong thời gian sớm nhất.'
+                    )
+                    return redirect('patient_portal:my_appointments')
     else:
         form = OnlineAppointmentForm()
 

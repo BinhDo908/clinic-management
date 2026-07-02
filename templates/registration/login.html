@@ -11,20 +11,26 @@
             <div class="card-body">
 
                 {% if form.errors %}
-                    <div class="alert alert-danger">Sai tên đăng nhập hoặc mật khẩu.</div>
+                    <div class="alert alert-danger">
+                        {% if form.non_field_errors %}
+                            {{ form.non_field_errors.0 }}
+                        {% else %}
+                            Sai tên đăng nhập hoặc mật khẩu.
+                        {% endif %}
+                    </div>
                 {% endif %}
 
                 <!-- Tab chọn nhóm người dùng -->
                 <ul class="nav nav-pills nav-justified mb-4" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="pill"
-                                data-bs-target="#tab-patient" type="button">
+                        <button class="nav-link {% if form.data.login_as != 'staff' %}active{% endif %}"
+                                data-bs-toggle="pill" data-bs-target="#tab-patient" type="button">
                             <i class="bi bi-person"></i> Bệnh nhân
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill"
-                                data-bs-target="#tab-staff" type="button">
+                        <button class="nav-link {% if form.data.login_as == 'staff' %}active{% endif %}"
+                                data-bs-toggle="pill" data-bs-target="#tab-staff" type="button">
                             <i class="bi bi-person-badge"></i> Nhân viên
                         </button>
                     </li>
@@ -32,13 +38,14 @@
 
                 <div class="tab-content">
                     <!-- Bệnh nhân -->
-                    <div class="tab-pane fade show active" id="tab-patient">
+                    <div class="tab-pane fade {% if form.data.login_as != 'staff' %}show active{% endif %}" id="tab-patient">
                         <p class="text-muted small mb-3">
                             <i class="bi bi-info-circle"></i>
                             Dành cho bệnh nhân đặt lịch khám và xem lịch sử khám bệnh.
                         </p>
                         <form method="post">
                             {% csrf_token %}
+                            <input type="hidden" name="login_as" value="patient">
                             <div class="mb-3">
                                 <label class="form-label">Số điện thoại</label>
                                 <input type="text" name="username" class="form-control"
@@ -60,7 +67,7 @@
                     </div>
 
                     <!-- Nhân viên -->
-                    <div class="tab-pane fade" id="tab-staff">
+                    <div class="tab-pane fade {% if form.data.login_as == 'staff' %}show active{% endif %}" id="tab-staff">
                         <p class="text-muted small mb-3">
                             <i class="bi bi-info-circle"></i>
                             Dành cho <strong>Bác sĩ, Lễ tân, Dược sĩ, Quản trị viên</strong>.
@@ -68,6 +75,7 @@
                         </p>
                         <form method="post">
                             {% csrf_token %}
+                            <input type="hidden" name="login_as" value="staff">
                             <div class="mb-3">
                                 <label class="form-label">Tên đăng nhập</label>
                                 <input type="text" name="username" class="form-control"

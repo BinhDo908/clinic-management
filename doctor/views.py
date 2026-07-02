@@ -48,8 +48,11 @@ def examination(request, appointment_id):
         messages.warning(request, 'Ca khám này đã hoàn tất trước đó.')
         return redirect('doctor:queue')
 
-    # Danh sách thuốc còn hàng để bác sĩ chọn
-    medicines = Medicine.objects.filter(is_active=True, stock_quantity__gt=0)
+    # Danh sách thuốc còn hàng để bác sĩ chọn (loại thuốc đã hết hạn sử dụng)
+    today = timezone.localdate()
+    medicines = Medicine.objects.filter(
+        is_active=True, stock_quantity__gt=0,
+    ).exclude(expiry_date__lt=today)
     medicines_data = [
         {
             'id': m.medicine_id,
@@ -84,6 +87,20 @@ def examination(request, appointment_id):
 
                         medicine = Medicine.objects.select_for_update().get(pk=med_id)
                         qty = int(qty)
+
+                        # Số lượng phải dương; số 0/âm không hợp lệ và sẽ làm sai lệch
+                        # kho (trừ đi số âm = cộng thêm vào tồn kho)
+                        if qty <= 0:
+                            raise ValueError(
+                                f'Số lượng thuốc "{medicine.medicine_name}" phải lớn hơn 0.'
+                            )
+
+                        # Không cho kê thuốc đã hết hạn sử dụng
+                        if medicine.is_expired():
+                            raise ValueError(
+                                f'Thuốc "{medicine.medicine_name}" đã hết hạn sử dụng '
+                                f'({medicine.expiry_date.strftime("%d/%m/%Y")}), không thể kê đơn.'
+                            )
 
                         # Kiểm tra tồn kho đủ không
                         if medicine.stock_quantity < qty:

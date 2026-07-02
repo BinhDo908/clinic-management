@@ -19,5 +19,8 @@ urlpatterns = [
     path('appointment/<int:pk>/approve/', views.approve_appointment, name='approve_appointment'),
     path('appointment/<int:pk>/reject/', views.reject_appointment, name='reject_appointment'),
 
+    # Check-in bệnh nhân đã xác nhận -> đưa vào hàng đợi bác sĩ
+    path('appointment/<int:pk>/checkin/', views.checkin_appointment, name='checkin_appointment'),
+
     path('appointment/list/', views.appointment_list, name='appointment_list'),
 ]

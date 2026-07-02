@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from .models import CustomUser
 
 
@@ -69,3 +69,70 @@ class StyledPasswordChangeForm(PasswordChangeForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
+
+
+class RoleAwareAuthenticationForm(AuthenticationForm):
+    """
+    Form đăng nhập nhận biết tab người dùng chọn (Bệnh nhân / Nhân viên).
+    Trang login.html gửi kèm field ẩn `login_as` theo tab đang active, dùng để
+    chặn trường hợp bệnh nhân đăng nhập nhầm ở tab Nhân viên (và ngược lại).
+    `login_as` để trống nếu không xác định thì bỏ qua kiểm tra (không chặn).
+    """
+
+    login_as = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        login_as = self.cleaned_data.get('login_as')
+        if login_as == 'patient' and user.role != 'PATIENT':
+            raise forms.ValidationError(
+                'Đây không phải tài khoản bệnh nhân. Vui lòng đăng nhập ở mục "Nhân viên".',
+                code='wrong_tab',
+            )
+        if login_as == 'staff' and user.role == 'PATIENT':
+            raise forms.ValidationError(
+                'Tài khoản bệnh nhân vui lòng đăng nhập ở mục "Bệnh nhân".',
+                code='wrong_tab',
+            )
+
+
+class StaffCreateForm(forms.Form):
+    """Form dành cho Admin tạo tài khoản nhân viên (bác sĩ, lễ tân, dược sĩ, quản trị viên)."""
+
+    ROLE_CHOICES = [
+        ('DOCTOR', 'Bác sĩ'),
+        ('RECEPTIONIST', 'Lễ tân'),
+        ('PHARMACIST', 'Dược sĩ'),
+        ('ADMIN', 'Quản trị viên'),
+    ]
+
+    full_name = forms.CharField(
+        max_length=150, label='Họ và tên',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: Nguyễn Văn A'})
+    )
+    username = forms.CharField(
+        max_length=150, label='Tên đăng nhập',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: bacsi_an'})
+    )
+    phone = forms.CharField(
+        max_length=15, required=False, label='Số điện thoại',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: 0901234567'})
+    )
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES, label='Vai trò',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        if CustomUser.objects.filter(username=username).exists():
+            raise forms.ValidationError('Tên đăng nhập này đã tồn tại.')
+        return username
+
+    def clean_phone(self):
+        phone = (self.cleaned_data.get('phone') or '').strip().replace(' ', '')
+        if not phone:
+            return ''
+        if CustomUser.objects.filter(phone=phone).exists():
+            raise forms.ValidationError('Số điện thoại này đã được dùng bởi tài khoản khác.')
+        return phone

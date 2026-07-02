@@ -30,3 +30,18 @@ body {
 .btn-primary {
     background-color: #0d6efd;
 }
+
+/* In trang (phiếu tiếp nhận, hóa đơn...): ẩn navbar/sidebar, chỉ in nội dung chính */
+@media print {
+    .navbar,
+    .sidebar,
+    .no-print {
+        display: none !important;
+    }
+
+    main {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}

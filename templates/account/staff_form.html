@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Thêm tài khoản nhân viên{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="bi bi-person-plus"></i> Thêm tài khoản nhân viên</h4>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            Tài khoản mới sẽ có mật khẩu mặc định <strong>123456</strong> và bắt buộc
+            đổi mật khẩu ngay khi đăng nhập lần đầu.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Tạo tài khoản
+            </button>
+            <a href="{% url 'accounts:staff_list' %}" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> Hủy
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}
